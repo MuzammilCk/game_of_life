@@ -6,7 +6,8 @@ export class Hashlife {
     // Since `step(node)` always advances by 2^(level-2) generations and returns center,
     // the result is deterministic based solely on the node ID.
     // So we can map node.id -> resultNode.
-    private cache = new Map<string, QuadTreeNode>();
+    // So we can map node.id -> resultNode.
+    private cache = new Map<number, QuadTreeNode>();
 
     constructor() { }
 

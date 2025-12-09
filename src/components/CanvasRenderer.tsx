@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { QuadTree, type QuadTreeNode } from '../engine/QuadTree';
+import type { QuadTreeNode } from '../engine/QuadTree';
 
 interface CanvasRendererProps {
     universeRef: React.MutableRefObject<QuadTreeNode>;
+    onFpsChange?: (fps: number) => void;
 }
 
-export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) => {
+export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onFpsChange }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -26,6 +27,11 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
     // Debug/Stats
     const [fps, setFps] = useState(0);
 
+    // Propagate FPS to parent
+    useEffect(() => {
+        if (onFpsChange) onFpsChange(fps);
+    }, [fps, onFpsChange]);
+
     useEffect(() => {
         let animationFrameId: number;
         let lastTime = performance.now();
@@ -35,7 +41,8 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
         const render = (time: number) => {
             frameCount++;
             if (time - lastFpsTime >= 1000) {
-                setFps(Math.round((frameCount * 1000) / (time - lastFpsTime)));
+                const newFps = Math.round((frameCount * 1000) / (time - lastFpsTime));
+                setFps(newFps);
                 frameCount = 0;
                 lastFpsTime = time;
             }
@@ -57,6 +64,60 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
                 ctx.fillStyle = '#111';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+                // Draw Grid
+                // Only draw if zoom is reasonable (> 2px per cell?)
+                if (cam.zoom > 2) {
+                    ctx.strokeStyle = '#222';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+
+                    // Vertical lines
+                    // World X range: viewport.minX to viewport.maxX
+                    const startX = Math.floor(viewport.minX);
+                    const endX = Math.ceil(viewport.maxX);
+
+                    for (let x = startX; x <= endX; x++) {
+                        const screenX = (x - cam.x) * cam.zoom + cam.offsetX;
+                        ctx.moveTo(screenX, 0);
+                        ctx.lineTo(screenX, canvas.height);
+                    }
+
+                    // Horizontal lines
+                    const startY = Math.floor(viewport.minY);
+                    const endY = Math.ceil(viewport.maxY);
+
+                    for (let y = startY; y <= endY; y++) {
+                        const screenY = (y - cam.y) * cam.zoom + cam.offsetY;
+                        ctx.moveTo(0, screenY);
+                        ctx.lineTo(canvas.width, screenY);
+                    }
+
+                    ctx.stroke();
+                }
+
+                // Draw Axes (Optional, but helpful)
+                // X Axis
+                const screenY0 = (-cam.y) * cam.zoom + cam.offsetY;
+                if (screenY0 >= 0 && screenY0 <= canvas.height) {
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, screenY0);
+                    ctx.lineTo(canvas.width, screenY0);
+                    ctx.stroke();
+                }
+
+                // Y Axis
+                const screenX0 = (-cam.x) * cam.zoom + cam.offsetX;
+                if (screenX0 >= 0 && screenX0 <= canvas.width) {
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(screenX0, 0);
+                    ctx.lineTo(screenX0, canvas.height);
+                    ctx.stroke();
+                }
+
                 // Draw
                 const universe = universeRef.current;
                 const cam = cameraRef.current;
@@ -64,11 +125,6 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
                 ctx.fillStyle = '#0f0'; // Retro green
 
                 // Calculate Viewport Bounds in World Space
-                // Screen: (0,0) to (width, height)
-                // World: (screen - offset) / zoom + center
-                // minX = (0 - offsetX) / zoom + x
-                // maxX = (width - offsetX) / zoom + x
-
                 const viewport = {
                     minX: -cam.offsetX / cam.zoom + cam.x,
                     maxX: (canvas.width - cam.offsetX) / cam.zoom + cam.x,
@@ -76,23 +132,9 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
                     maxY: (canvas.height - cam.offsetY) / cam.zoom + cam.y
                 };
 
-                // Recursive Draw
-                // We start drawing the root node, which we assume covers a very large area rooted at (0,0)??
-                // Wait, QuadTree structure defines strict coverage.
-                // A node at level K covers 0..2^K, 0..2^K (relative to its own top-left).
-                // Where is the Root located in World Space?
-                // Hashlife usually centers the root at (0,0)?
-                // Or strictly, the quadtree indices are unsigned integers 0..2^64.
-                // But for infinite canvas, we usually map "0,0" to the center of the initial generation.
-                // Let's assume the Root Node's top-left is at (-Size/2, -Size/2) in world space?
-                // Let's assume standard logic: (0,0) is top-left of the node. 
-                // We can just draw it at an arbitrary offset.
-                // Let's say we define World (0,0) as the center of the root node.
-
                 const size = 1 << universe.level;
-                // World position of top-left corner of root
                 const rootX = -(size / 2);
-                const rootY = -(size / 2); // Center the universe at (0,0)
+                const rootY = -(size / 2);
 
                 drawNode(ctx, universe, rootX, rootY, size, viewport, cam);
             }
@@ -102,7 +144,7 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef }) =
 
         animationFrameId = requestAnimationFrame(render);
         return () => cancelAnimationFrame(animationFrameId);
-    }, []); // universeRef is mutable, so deep dep not needed given we read .current in loop
+    }, []); // universeRef is mutable
 
     const drawNode = (
         ctx: CanvasRenderingContext2D,

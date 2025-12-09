@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# The Infinite Evolutionary Engine
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A high-performance, infinite-canvas Cellular Automaton platform powered by the **Hashlife** algorithm.
 
-Currently, two official plugins are available:
+![Demo](https://via.placeholder.com/800x400?text=Infinite+Evolutionary+Engine)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## React Compiler
+- **Hashlife Algorithm**: Simulates trillions of generations instantly using memoization.
+- **Infinite Canvas**: Explore a limitless universe with smooth 60fps zooming and panning.
+- **QuadTree Architecture**: Efficient spatial storage with canonical node caching (Flyweight pattern).
+- **Pattern Library**: Includes classic patterns (Gosper Glider Gun, Pulsars, Space Ships).
+- **Modern UI**: Glassmorphism sidebar with real-time stats and speed controls.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+- **Core**: React 19, TypeScript
+- **Build**: Vite
+- **Testing**: Vitest
+- **Performance**: WebGL-ready Canvas API, Custom Hashlife Engine
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🏁 How to Run
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+2. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   > Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+3. **Run Tests**
+   ```bash
+   npm test
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🎮 Controls
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Pan**: Click and drag on the canvas.
+- **Zoom**: Scroll up/down.
+- **Play/Pause**: Toggle simulation.
+- **Step**: Advance by one engine step (variable time jump based on zoom/level).
+- **Speed**: Adjust the simulation loop delay.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🏗️ Architecture
+
+The engine is built on a custom **QuadTree** implementation located in `src/engine/`. 
+- `Hashlife.ts`: Core recursive algorithm.
+- `QuadTree.ts`: Spatial data structure with garbage collection.
+- `CanvasRenderer.tsx`: Optimized React canvas component.
+
+---
+*Built as part of the Advanced Agentic Coding Project.*
