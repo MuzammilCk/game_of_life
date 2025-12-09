@@ -13,7 +13,6 @@ interface SidebarProps {
     onToggleAutoExpand: () => void;
     stats: {
         generation: bigint;
-
         population: number;
         level: number;
         fps: number;
@@ -28,6 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onLoadPattern,
     speed,
     onSpeedChange,
+    autoExpand,
+    onToggleAutoExpand,
     stats
 }) => {
     return (
@@ -208,10 +209,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
                 <div>
                     <div style={{ fontSize: '0.9rem', color: '#eee' }}>Auto Expand</div>
-                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Grow universe to fit content</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Grow to fit content</div>
                 </div>
             </div>
         </div>
-        </div >
     );
 };

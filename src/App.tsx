@@ -69,18 +69,18 @@ function App() {
     root = QuadTree.expand(root); // K -> K+1
 
     // AUTO-EXPAND: Grow the universe if enabled
-    // Only if level < 30 to prevent overflow (Level 30 = 1 Billion^2)
     if (autoExpand && root.level < 30) {
       root = QuadTree.expand(root); // K+1 -> K+2
     }
 
     // 2. Evolve
-    root = engineRef.current.step(root); // K+2 -> K+1 (Net Growth: +1 Level) or K+1 -> K (Net Growth: 0)
+    // Use advance(1) for smooth animation!
+    root = engineRef.current.advance(root, 1);
 
     universeRef.current = root;
 
     // Stats
-    const stepSize = 1n << BigInt(Math.max(0, root.level - 1));
+    const stepSize = 1n; // We are stepping 1 gen now
     setGeneration(g => g + stepSize);
     setPopulation(root.population);
 
@@ -120,9 +120,49 @@ function App() {
     loadPattern(PATTERNS["Gosper Glider Gun"]);
   };
 
+  // Drawing Handler
+  const handleCellToggle = useCallback((x: number, y: number) => {
+    // PAUSE simulation while drawing
+    setPlaying(false);
+
+    try {
+      let root = universeRef.current;
+
+      // Expand if out of bounds
+      for (let i = 0; i < 10; i++) {
+        const size = 1 << root.level;
+        const half = size >> 1;
+        if (x >= -half && x < half && y >= -half && y < half) {
+          break;
+        }
+        root = QuadTree.expand(root);
+      }
+
+      // Convert World (Centered) to Local (Top-Left)
+      const size = 1 << root.level;
+      const half = size >> 1;
+      const localX = x + half;
+      const localY = y + half;
+
+      // Set Cell (Draw)
+      root = QuadTree.setCell(root, localX, localY, true);
+
+      universeRef.current = root;
+      setPopulation(root.population);
+      // Canvas will re-render next frame
+
+    } catch (e) {
+      console.warn("Failed to set cell", e);
+    }
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
-      <CanvasRenderer universeRef={universeRef} onFpsChange={setFps} />
+      <CanvasRenderer
+        universeRef={universeRef}
+        onFpsChange={setFps}
+        onCellToggle={handleCellToggle}
+      />
 
       <Sidebar
         playing={playing}

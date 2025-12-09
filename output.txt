@@ -1,0 +1,16 @@
+Starting QuadTree Logic Test...
+Initial Level: 4 Size: 16 Pop: 0
+Half size: 8
+Setting cell at (0,0) [Local 8,8]...
+New Population: 1
+Testing Expansion logic...
+Expanded Level: 5 Size: 32
+Is (0,0) alive in expanded tree? true
+SUCCESS: Center preserved.
+Testing App.tsx Expansion Logic...
+Setting cell at (10, 10) - Should Auto-Expand
+Level 4: Range [-8, 7]
+Expanded to Level 5
+Level 5: Range [-16, 15]
+Final Level: 5, Half: 16. Setting setCell(26, 26)
+SUCCESS: Cell set. Population: 1

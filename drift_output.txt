@@ -1,0 +1,13 @@
+Starting Spatial Drift Verification...
+Created Root Level 4. Size 16. Mapping (0,0) to (8, 8).
+Initial Population: 4
+Expanded to Level 5. Size 32.
+Advancing by 1 step...
+Result Level: 4. Expected: 4.
+Is Block at center (8,8)? false
+Grid around center:
+6: . . . . . 
+7: . . . . . 
+8: . . . . . 
+9: . . . . . 
+10: . . . . . 

@@ -4,30 +4,35 @@ import type { QuadTreeNode } from '../engine/QuadTree';
 interface CanvasRendererProps {
     universeRef: React.MutableRefObject<QuadTreeNode>;
     onFpsChange?: (fps: number) => void;
+    onCellToggle?: (x: number, y: number) => void; // Request to toggle a cell
 }
 
-export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onFpsChange }) => {
+export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onFpsChange, onCellToggle }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Camera state
-    // Using refs for animation loop performance (no react re-renders)
     const cameraRef = useRef({
-        x: 0, // World coordinates of center
+        x: 0,
         y: 0,
-        zoom: 4, // Pixels per cell
-        offsetX: 0, // Screen center offset
+        zoom: 4,
+        offsetX: 0,
         offsetY: 0
     });
 
-    // Mouse interaction state
-    const isDragging = useRef(false);
-    const lastMouse = useRef({ x: 0, y: 0 });
+    // Interaction state
+    const interactionRef = useRef({
+        isDragging: false,
+        isDrawing: false,
+        lastMouseX: 0,
+        lastMouseY: 0,
+        button: 0 // 0: Left, 2: Right
+    });
 
     // Debug/Stats
     const [fps, setFps] = useState(0);
 
-    // Propagate FPS to parent
+    // Propagate FPS
     useEffect(() => {
         if (onFpsChange) onFpsChange(fps);
     }, [fps, onFpsChange]);
@@ -41,102 +46,116 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
         const render = (time: number) => {
             frameCount++;
             if (time - lastFpsTime >= 1000) {
-                const newFps = Math.round((frameCount * 1000) / (time - lastFpsTime));
-                setFps(newFps);
+                setFps(Math.round((frameCount * 1000) / (time - lastFpsTime)));
                 frameCount = 0;
                 lastFpsTime = time;
             }
 
             const canvas = canvasRef.current;
-            const ctx = canvas?.getContext('2d', { alpha: false }); // Optimization
+            const ctx = canvas?.getContext('2d', { alpha: false });
 
             if (canvas && ctx && containerRef.current) {
-                // Handle Resize
+                // Handle Resize & DPI
+                const dpr = window.devicePixelRatio || 1;
                 const { clientWidth, clientHeight } = containerRef.current;
-                if (canvas.width !== clientWidth || canvas.height !== clientHeight) {
-                    canvas.width = clientWidth;
-                    canvas.height = clientHeight;
+
+                // Check if dimensions or DPI changed
+                if (canvas.width !== clientWidth * dpr || canvas.height !== clientHeight * dpr) {
+                    canvas.width = clientWidth * dpr;
+                    canvas.height = clientHeight * dpr;
+                    // Scale context to match DPI
+                    // Reset transform before setting new one
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.scale(dpr, dpr);
+
+                    // Pixel Art Mode (Crisp edges)
+                    ctx.imageSmoothingEnabled = false;
+
                     cameraRef.current.offsetX = clientWidth / 2;
                     cameraRef.current.offsetY = clientHeight / 2;
                 }
 
-                // Clear
-                ctx.fillStyle = '#111';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // --- RENDER START ---
+                // Background - Deep Void/Space Color
+                ctx.fillStyle = '#050505';
+                // Clear using logical coordinates (clientWidth/Height)
+                ctx.fillRect(0, 0, clientWidth, clientHeight);
 
-                // Draw Grid
-                // Only draw if zoom is reasonable (> 2px per cell?)
-                if (cam.zoom > 2) {
-                    ctx.strokeStyle = '#222';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-
-                    // Vertical lines
-                    // World X range: viewport.minX to viewport.maxX
-                    const startX = Math.floor(viewport.minX);
-                    const endX = Math.ceil(viewport.maxX);
-
-                    for (let x = startX; x <= endX; x++) {
-                        const screenX = (x - cam.x) * cam.zoom + cam.offsetX;
-                        ctx.moveTo(screenX, 0);
-                        ctx.lineTo(screenX, canvas.height);
-                    }
-
-                    // Horizontal lines
-                    const startY = Math.floor(viewport.minY);
-                    const endY = Math.ceil(viewport.maxY);
-
-                    for (let y = startY; y <= endY; y++) {
-                        const screenY = (y - cam.y) * cam.zoom + cam.offsetY;
-                        ctx.moveTo(0, screenY);
-                        ctx.lineTo(canvas.width, screenY);
-                    }
-
-                    ctx.stroke();
-                }
-
-                // Draw Axes (Optional, but helpful)
-                // X Axis
-                const screenY0 = (-cam.y) * cam.zoom + cam.offsetY;
-                if (screenY0 >= 0 && screenY0 <= canvas.height) {
-                    ctx.strokeStyle = '#444';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(0, screenY0);
-                    ctx.lineTo(canvas.width, screenY0);
-                    ctx.stroke();
-                }
-
-                // Y Axis
-                const screenX0 = (-cam.x) * cam.zoom + cam.offsetX;
-                if (screenX0 >= 0 && screenX0 <= canvas.width) {
-                    ctx.strokeStyle = '#444';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(screenX0, 0);
-                    ctx.lineTo(screenX0, canvas.height);
-                    ctx.stroke();
-                }
-
-                // Draw
                 const universe = universeRef.current;
                 const cam = cameraRef.current;
 
-                ctx.fillStyle = '#0f0'; // Retro green
+                // Viewport in World Space
+                // Uses logical pixels (clientWidth) for calculation
+                const width = clientWidth;
+                const height = clientHeight;
 
-                // Calculate Viewport Bounds in World Space
                 const viewport = {
                     minX: -cam.offsetX / cam.zoom + cam.x,
-                    maxX: (canvas.width - cam.offsetX) / cam.zoom + cam.x,
+                    maxX: (width - cam.offsetX) / cam.zoom + cam.x,
                     minY: -cam.offsetY / cam.zoom + cam.y,
-                    maxY: (canvas.height - cam.offsetY) / cam.zoom + cam.y
+                    maxY: (height - cam.offsetY) / cam.zoom + cam.y
                 };
+
+                // 1. Draw Grid (Context)
+                // Adaptive Grid: Fade out when too dense
+                if (cam.zoom > 3) {
+                    ctx.strokeStyle = `rgba(50, 50, 50, ${Math.min(1, cam.zoom / 10)})`; // Subtle
+                    ctx.lineWidth = 0.5; // Thinner lines
+                    ctx.beginPath();
+
+                    // Snap to integers
+                    const startX = Math.floor(viewport.minX);
+                    const endX = Math.ceil(viewport.maxX);
+                    for (let x = startX; x <= endX; x++) {
+                        const screenX = (x - cam.x) * cam.zoom + cam.offsetX;
+                        ctx.moveTo(screenX, 0);
+                        ctx.lineTo(screenX, clientHeight);
+                    }
+
+                    const startY = Math.floor(viewport.minY);
+                    const endY = Math.ceil(viewport.maxY);
+                    for (let y = startY; y <= endY; y++) {
+                        const screenY = (y - cam.y) * cam.zoom + cam.offsetY;
+                        ctx.moveTo(0, screenY);
+                        ctx.lineTo(clientWidth, screenY);
+                    }
+                    ctx.stroke();
+                }
+
+                // 2. Draw Axes (Reference)
+                // Draw axes slightly thicker and brighter
+                const screenY0 = (-cam.y) * cam.zoom + cam.offsetY;
+                const screenX0 = (-cam.x) * cam.zoom + cam.offsetX;
+
+                ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)'; // Brighter Green Axis
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, screenY0);
+                ctx.lineTo(clientWidth, screenY0);
+                ctx.moveTo(screenX0, 0);
+                ctx.lineTo(screenX0, clientHeight);
+                ctx.stroke();
+
+                // 3. Draw Cells (The "Wow" Factor)
+                // Use a glow effect
+                ctx.fillStyle = '#4ade80'; // Neon Green
+                ctx.shadowColor = '#4ade80';
+
+                // Only enable shadow if zoom is high enough (expensive!)
+                if (cam.zoom > 4) {
+                    ctx.shadowBlur = 15;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
 
                 const size = 1 << universe.level;
                 const rootX = -(size / 2);
                 const rootY = -(size / 2);
 
                 drawNode(ctx, universe, rootX, rootY, size, viewport, cam);
+
+                // Reset shadow for next frame
+                ctx.shadowBlur = 0;
             }
 
             animationFrameId = requestAnimationFrame(render);
@@ -144,7 +163,7 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
 
         animationFrameId = requestAnimationFrame(render);
         return () => cancelAnimationFrame(animationFrameId);
-    }, []); // universeRef is mutable
+    }, []);
 
     const drawNode = (
         ctx: CanvasRenderingContext2D,
@@ -155,108 +174,124 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
         vp: { minX: number, maxX: number, minY: number, maxY: number },
         cam: { x: number, y: number, zoom: number, offsetX: number, offsetY: number }
     ) => {
-        // 1. Culling
-        // Checks if rectangle (x,y,size,size) intersects viewport
-        if (x + size < vp.minX || x > vp.maxX || y + size < vp.minY || y > vp.maxY) {
-            return;
-        }
-
-        // 2. Empty check
+        // Culling
+        if (x + size < vp.minX || x > vp.maxX || y + size < vp.minY || y > vp.maxY) return;
         if (node.population === 0) return;
 
-        // 3. Leaf / Low Detail check
-        // If size shows up as small on screen, draw a rect
         const screenSize = size * cam.zoom;
 
-        // Performance: If cells are smaller than 1px, draw the node as a density block
-        // Or if node is Level 0 (Leaf)
+        // Leaf Node or "Small enough to be a pixel"
         if (node.level === 0) {
-            // Draw cell
             const screenX = (x - cam.x) * cam.zoom + cam.offsetX;
             const screenY = (y - cam.y) * cam.zoom + cam.offsetY;
-
-            // Use fillRect. To avoid gaps due to rounding, maybe add slightly to width?
-            // Or strictly size.
-            ctx.fillRect(screenX, screenY, Math.max(cam.zoom, 1), Math.max(cam.zoom, 1));
+            // Draw slightly smaller than grid for "cell" look? No, fill fully for pixel feel.
+            // But if grid lines are ON top?
+            // Let's stick with full fill.
+            // Using slightly smaller size creates "gap" between cells naturally.
+            const gap = cam.zoom > 4 ? 0.5 : 0;
+            ctx.fillRect(screenX, screenY, Math.max(cam.zoom - gap, 0.5), Math.max(cam.zoom - gap, 0.5));
             return;
         }
 
-        if (screenSize < 2) { // Less than 2 pixels for entire node?
-            // Draw aggregate point
+        // Density Optimization for zoomed out view
+        if (screenSize < 2) {
             const screenX = (x - cam.x) * cam.zoom + cam.offsetX;
             const screenY = (y - cam.y) * cam.zoom + cam.offsetY;
-            ctx.globalAlpha = Math.min(1, node.population / (size * size)); // approximate density
+            ctx.globalAlpha = Math.min(1, node.population / (size * size) * 10); // Boost visibility of sparse nodes
             ctx.fillRect(screenX, screenY, screenSize, screenSize);
             ctx.globalAlpha = 1;
             return;
         }
 
-        // 4. Recursive
         const half = size / 2;
-        // nw: x, y
-        // ne: x + half, y
-        // sw: x, y + half
-        // se: x + half, y + half
         if (node.nw) drawNode(ctx, node.nw, x, y, half, vp, cam);
         if (node.ne) drawNode(ctx, node.ne, x + half, y, half, vp, cam);
         if (node.sw) drawNode(ctx, node.sw, x, y + half, half, vp, cam);
         if (node.se) drawNode(ctx, node.se, x + half, y + half, half, vp, cam);
     };
 
-    // Interaction Handlers
-    const handleWheel = (e: React.WheelEvent) => {
-        const cam = cameraRef.current;
-        const zoomFactor = 1.1;
-        const direction = e.deltaY > 0 ? 1 / zoomFactor : zoomFactor;
+    // --- Interaction ---
 
-        // Zoom towards mouse
-        // Mouse screen pos:
+    // Wheel: Zoom
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault(); // Stop page scroll
+        const cam = cameraRef.current;
+        const zoomFactor = 1.001 ** -e.deltaY; // Smooth exponential zoom
+
+        // Mouse World Pos Before Zoom
         const rect = canvasRef.current!.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
-        // Convert mouse to world (before zoom)
         const wx = (mx - cam.offsetX) / cam.zoom + cam.x;
         const wy = (my - cam.offsetY) / cam.zoom + cam.y;
 
-        cam.zoom *= direction;
-        // Clamp zoom
-        cam.zoom = Math.max(0.0000001, Math.min(cam.zoom, 1000)); // Infinite zoom range support
+        cam.zoom *= zoomFactor;
+        cam.zoom = Math.max(0.01, Math.min(cam.zoom, 500)); // Clamp
 
-        // Adjust camera position so (wx, wy) remains at (mx, my)
-        // mx = (wx - newCamX) * newZoom + offsetX
-        // mx - offsetX = (wx - newCamX) * newZoom
-        // (mx - offsetX)/newZoom = wx - newCamX
-        // newCamX = wx - (mx - offsetX)/newZoom
+        // Adjust pos to keep mouse focused
         cam.x = wx - (mx - cam.offsetX) / cam.zoom;
         cam.y = wy - (my - cam.offsetY) / cam.zoom;
     };
 
+    const getMouseWorldPos = (e: React.MouseEvent) => {
+        const cam = cameraRef.current;
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        return {
+            x: Math.floor((mx - cam.offsetX) / cam.zoom + cam.x),
+            y: Math.floor((my - cam.offsetY) / cam.zoom + cam.y)
+        };
+    };
+
     const handleMouseDown = (e: React.MouseEvent) => {
-        isDragging.current = true;
-        lastMouse.current = { x: e.clientX, y: e.clientY };
+        const state = interactionRef.current;
+        state.isDragging = true;
+        state.lastMouseX = e.clientX;
+        state.lastMouseY = e.clientY;
+        state.button = e.button;
+
+        // SWAP: Left (0) = DRAW. Right (2) = PAN.
+        if (e.button === 0 && !e.shiftKey) {
+            state.isDrawing = true;
+            // Draw immediately
+            const pos = getMouseWorldPos(e);
+            if (onCellToggle) onCellToggle(pos.x, pos.y);
+        } else {
+            // Right Click or Shift+Click = Pan
+            state.isDrawing = false;
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging.current) return;
-        const dx = e.clientX - lastMouse.current.x;
-        const dy = e.clientY - lastMouse.current.y;
-        lastMouse.current = { x: e.clientX, y: e.clientY };
+        const state = interactionRef.current;
 
-        const cam = cameraRef.current;
-        cam.x -= dx / cam.zoom;
-        cam.y -= dy / cam.zoom;
+        // Track movement to distinguish Click vs Drag (if needed), but here we just act.
+        if (!state.isDragging) return;
+
+        if (state.isDrawing) {
+            // Draw Mode
+            const pos = getMouseWorldPos(e);
+            if (onCellToggle) onCellToggle(pos.x, pos.y);
+        } else {
+            // Pan Mode
+            const dx = e.clientX - state.lastMouseX;
+            const dy = e.clientY - state.lastMouseY;
+            const cam = cameraRef.current;
+            cam.x -= dx / cam.zoom;
+            cam.y -= dy / cam.zoom;
+            state.lastMouseX = e.clientX;
+            state.lastMouseY = e.clientY;
+        }
     };
 
     const handleMouseUp = () => {
-        isDragging.current = false;
+        interactionRef.current.isDragging = false;
+        interactionRef.current.isDrawing = false;
     };
 
     return (
-        <div
-            ref={containerRef}
-            style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#111' }}
-        >
+        <div ref={containerRef} style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#050505', cursor: 'crosshair' }}>
             <canvas
                 ref={canvasRef}
                 onWheel={handleWheel}
@@ -264,12 +299,21 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onContextMenu={e => e.preventDefault()}
                 style={{ display: 'block' }}
             />
-            <div style={{ position: 'absolute', top: 10, left: 10, color: '#0f0', pointerEvents: 'none', fontFamily: 'monospace' }}>
-                FPS: {fps} <br />
-                Zoom: {Math.round(cameraRef.current?.zoom * 100) / 100} <br />
-                Pos: ({Math.round(cameraRef.current?.x)}, {Math.round(cameraRef.current?.y)})
+            {/* HUD Overlay */}
+            <div style={{ position: 'absolute', bottom: 20, left: 20, color: 'rgba(255,255,255,0.5)', pointerEvents: 'none', fontFamily: "'Inter', sans-serif", fontSize: '0.8rem' }}>
+                <div style={{ marginBottom: 5 }}>Controls:</div>
+                <div style={{ display: 'flex', gap: 15 }}>
+                    <span style={{ color: '#4ade80' }}>Left Drag: <b>Draw</b></span>
+                    <span>Right Drag / Shift+Drag: <b>Pan</b></span>
+                    <span>Scroll: <b>Zoom</b></span>
+                </div>
+            </div>
+
+            <div style={{ position: 'absolute', top: 10, left: 10, color: '#4ade80', pointerEvents: 'none', fontFamily: 'monospace' }}>
+                FPS: {fps}
             </div>
         </div>
     );
