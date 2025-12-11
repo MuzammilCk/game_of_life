@@ -188,7 +188,9 @@ export class Hashlife {
         for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
                 if (dx === 0 && dy === 0) continue;
-                if (cells[y + dy][x + dx]) neighbors++;
+                // Safe access: treat out of bounds as dead
+                const row = cells[y + dy];
+                if (row && row[x + dx]) neighbors++;
             }
         }
 

@@ -70,10 +70,11 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
 
                     // Pixel Art Mode (Crisp edges)
                     ctx.imageSmoothingEnabled = false;
-
-                    cameraRef.current.offsetX = clientWidth / 2;
-                    cameraRef.current.offsetY = clientHeight / 2;
                 }
+
+                // ALWAYS update camera center offset (in case of container resize without canvas resize, or initial frame)
+                cameraRef.current.offsetX = clientWidth / 2;
+                cameraRef.current.offsetY = clientHeight / 2;
 
                 // --- RENDER START ---
                 // Background - Deep Void/Space Color
@@ -235,12 +236,25 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
 
     const getMouseWorldPos = (e: React.MouseEvent) => {
         const cam = cameraRef.current;
-        const rect = canvasRef.current!.getBoundingClientRect();
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+
+        const rect = canvas.getBoundingClientRect();
+
+        // Calculate center dynamically to match render logic
+        // If rect is 0 (layout shift/startup), fallback to offsetWidth/Height or 0
+        const width = rect.width || canvas.clientWidth || 0;
+        const height = rect.height || canvas.clientHeight || 0;
+
+        const offsetX = width / 2;
+        const offsetY = height / 2;
+
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
+
         return {
-            x: Math.floor((mx - cam.offsetX) / cam.zoom + cam.x),
-            y: Math.floor((my - cam.offsetY) / cam.zoom + cam.y)
+            x: Math.floor((mx - offsetX) / cam.zoom + cam.x),
+            y: Math.floor((my - offsetY) / cam.zoom + cam.y)
         };
     };
 

@@ -102,7 +102,14 @@ function App() {
     const loop = () => {
       if (!running) return;
       if (playing) {
-        step();
+        try {
+          step();
+        } catch (e) {
+          console.error("Simulation crashed:", e);
+          setPlaying(false);
+          alert("Simulation paused due to an error. Try resetting or drawing elsewhere.");
+          return;
+        }
       }
       timeoutId = setTimeout(loop, speed);
     };
