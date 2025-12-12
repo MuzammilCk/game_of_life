@@ -314,7 +314,7 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 onContextMenu={e => e.preventDefault()}
-                style={{ display: 'block' }}
+                style={{ display: 'block', width: '100%', height: '100%' }}
             />
             {/* HUD Overlay */}
             <div style={{ position: 'absolute', bottom: 20, left: 20, color: 'rgba(255,255,255,0.5)', pointerEvents: 'none', fontFamily: "'Inter', sans-serif", fontSize: '0.8rem' }}>
