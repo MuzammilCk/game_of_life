@@ -6,9 +6,9 @@
 export function parseRLE(rle: string): [number, number][] {
     const result: [number, number][] = [];
 
-    // Remove headers / comments lines (lines starting with # or x =)
-    const cleanRle = rle.replace(/^#.*$/gm, '')
-        .replace(/^x\s*=.*$/gm, '')
+    // Remove headers / comments lines (lines starting with # or x =), allowing for indentation
+    const cleanRle = rle.replace(/^\s*#.*$/gm, '')
+        .replace(/^\s*x\s*=.*$/gm, '')
         .replace(/\s/g, ''); // Remove whitespace
 
     let x = 0;

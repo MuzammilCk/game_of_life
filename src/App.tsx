@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { CanvasRenderer } from './components/CanvasRenderer';
 import { Sidebar } from './components/Sidebar';
+import { FloatingControls } from './components/FloatingControls';
 import { QuadTree, type QuadTreeNode } from './engine/QuadTree';
 import { Hashlife } from './engine/Hashlife';
 import { parseRLE, centerPattern } from './utils/rle';
@@ -18,10 +19,22 @@ function App() {
   const [fps, setFps] = useState(0); // From renderer
   const [autoExpand, setAutoExpand] = useState(true);
 
+  // NEW: Trigger for camera reset
+  const [resetTrigger, setResetTrigger] = useState(0);
+
+  // NEW: Sidebar State
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // NEW: Track the current pattern RLE
+  const [currentRLE, setCurrentRLE] = useState(PATTERNS["Gosper Glider Gun"]);
+
   // Load Pattern Helper
   const loadPattern = useCallback((rle: string) => {
     // Stop simulation
     setPlaying(false);
+
+    // NEW: Update current RLE state
+    setCurrentRLE(rle);
 
     engineRef.current.clearCache();
 
@@ -47,6 +60,9 @@ function App() {
       setGeneration(0n);
       setPopulation(root.population);
       QuadTree.collectGarbage([root]);
+
+      // NEW: Trigger camera reset
+      setResetTrigger(t => t + 1);
 
     } catch (e) {
       console.error("Failed to load pattern", e);
@@ -123,12 +139,27 @@ function App() {
   }, [playing, speed, step]);
 
   const handleReset = () => {
+    // 1. Pause the simulation
+    setPlaying(false);
+
+    // 2. Clear the engine cache to remove old data
     engineRef.current.clearCache();
-    loadPattern(PATTERNS["Gosper Glider Gun"]);
+
+    // 3. Create a completely empty universe
+    // Level 8 is a good default size to start with
+    const root = QuadTree.empty(8);
+    universeRef.current = root;
+
+    // 4. Reset stats
+    setGeneration(0n);
+    setPopulation(0);
+
+    // 5. Reset Camera (Trigger the camera reset effect)
+    setResetTrigger(t => t + 1);
   };
 
   // Drawing Handler
-  const handleCellToggle = useCallback((x: number, y: number) => {
+  const handleCellToggle = useCallback((x: number, y: number, alive: boolean) => {
     // PAUSE simulation while drawing
     setPlaying(false);
 
@@ -151,8 +182,8 @@ function App() {
       const localX = x + half;
       const localY = y + half;
 
-      // Set Cell (Draw)
-      root = QuadTree.setCell(root, localX, localY, true);
+      // Set Cell (Draw/Erase)
+      root = QuadTree.setCell(root, localX, localY, alive);
 
       universeRef.current = root;
       setPopulation(root.population);
@@ -164,18 +195,24 @@ function App() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <CanvasRenderer
         universeRef={universeRef}
         onFpsChange={setFps}
         onCellToggle={handleCellToggle}
+        resetTrigger={resetTrigger} // NEW PROP
       />
 
-      <Sidebar
+      <FloatingControls
         playing={playing}
         onTogglePlay={() => setPlaying(!playing)}
         onStep={step}
         onReset={handleReset}
+      />
+
+      <Sidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
         onLoadPattern={loadPattern}
         speed={speed}
         onSpeedChange={setSpeed}

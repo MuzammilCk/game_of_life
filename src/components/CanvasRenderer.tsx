@@ -1,13 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import type { QuadTreeNode } from '../engine/QuadTree';
+import { QuadTree, type QuadTreeNode } from '../engine/QuadTree';
 
 interface CanvasRendererProps {
     universeRef: React.MutableRefObject<QuadTreeNode>;
     onFpsChange?: (fps: number) => void;
-    onCellToggle?: (x: number, y: number) => void; // Request to toggle a cell
+    onCellToggle?: (x: number, y: number, alive: boolean) => void; // Request to toggle a cell
+    resetTrigger?: number; // NEW
 }
 
-export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onFpsChange, onCellToggle }) => {
+export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onFpsChange, onCellToggle, resetTrigger }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -20,10 +21,19 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
         offsetY: 0
     });
 
+    // NEW: Reset Camera Effect
+    useEffect(() => {
+        cameraRef.current.x = 0;
+        cameraRef.current.y = 0;
+        cameraRef.current.zoom = 4;
+        // Keep existing offsetX/Y as they depend on screen size
+    }, [resetTrigger]);
+
     // Interaction state
     const interactionRef = useRef({
         isDragging: false,
         isDrawing: false,
+        drawState: true, // NEW: Track if we are adding (true) or removing (false)
         lastMouseX: 0,
         lastMouseY: 0,
         button: 0 // 0: Left, 2: Right
@@ -122,20 +132,6 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
                     }
                     ctx.stroke();
                 }
-
-                // 2. Draw Axes (Reference)
-                // Draw axes slightly thicker and brighter
-                const screenY0 = (-cam.y) * cam.zoom + cam.offsetY;
-                const screenX0 = (-cam.x) * cam.zoom + cam.offsetX;
-
-                ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)'; // Brighter Green Axis
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(0, screenY0);
-                ctx.lineTo(clientWidth, screenY0);
-                ctx.moveTo(screenX0, 0);
-                ctx.lineTo(screenX0, clientHeight);
-                ctx.stroke();
 
                 // 3. Draw Cells (The "Wow" Factor)
                 // Use a glow effect
@@ -270,7 +266,18 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
             state.isDrawing = true;
             // Draw immediately
             const pos = getMouseWorldPos(e);
-            if (onCellToggle) onCellToggle(pos.x, pos.y);
+
+            // NEW: Determine intent (Draw vs Erase)
+            const universe = universeRef.current;
+            const size = 1 << universe.level;
+            const half = size >> 1;
+            // Check if cell is currently alive
+            const isAlive = QuadTree.getCell(universe, pos.x + half, pos.y + half);
+
+            // If alive, we want to erase (false). If dead, we want to draw (true).
+            state.drawState = !isAlive;
+
+            if (onCellToggle) onCellToggle(pos.x, pos.y, state.drawState);
         } else {
             // Right Click or Shift+Click = Pan
             state.isDrawing = false;
@@ -286,7 +293,8 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({ universeRef, onF
         if (state.isDrawing) {
             // Draw Mode
             const pos = getMouseWorldPos(e);
-            if (onCellToggle) onCellToggle(pos.x, pos.y);
+            // NEW: Use the stored drawState (so we don't flicker while dragging)
+            if (onCellToggle) onCellToggle(pos.x, pos.y, state.drawState);
         } else {
             // Pan Mode
             const dx = e.clientX - state.lastMouseX;

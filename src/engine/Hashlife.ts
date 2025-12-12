@@ -4,6 +4,9 @@ export class Hashlife {
     // Cache for memoization: ID -> Result Node
     private cache = new Map<number, QuadTreeNode>();
 
+    // NEW: Cache for the advance method (ID:Steps -> Result Node)
+    private advanceCache = new Map<string, QuadTreeNode>();
+
     constructor() { }
 
     /**
@@ -11,6 +14,7 @@ export class Hashlife {
      */
     clearCache() {
         this.cache.clear();
+        this.advanceCache.clear(); // Clear the new cache too
     }
 
     /**
@@ -28,6 +32,13 @@ export class Hashlife {
         const maxStep = 1n << BigInt(node.level - 2);
         if (BigInt(steps) === maxStep) {
             return this.step(node);
+        }
+
+        // NEW: Check Cache
+        // We use a composite key because the result depends on both the Node ID and the requested Steps
+        const cacheKey = `${node.id}:${steps}`;
+        if (this.advanceCache.has(cacheKey)) {
+            return this.advanceCache.get(cacheKey)!;
         }
 
         // Recursive Decomposition
@@ -62,12 +73,7 @@ export class Hashlife {
         // Each child is formed by stitching the INNER CORNERS of the partial results.
         // This guarantees continuous coverage without gaps.
 
-        // Output Children (Level K-2)
-        // This requires QuadTree.create to accept (Level K-3) nodes!
-        // rXX are Level K-2. They have children.
-        // So we are peeling back one layer of the K-2 results to stitch them.
-
-        return QuadTree.create(
+        const result = QuadTree.create(
             node.level - 1,
             // NW Child (Level K-2)
             QuadTree.create(node.level - 2, r00.se!, r01.sw!, r10.ne!, r11.nw!),
@@ -78,6 +84,11 @@ export class Hashlife {
             // SE Child
             QuadTree.create(node.level - 2, r11.se!, r12.sw!, r21.ne!, r22.nw!)
         );
+
+        // NEW: Save to Cache
+        this.advanceCache.set(cacheKey, result);
+
+        return result;
     }
 
     /**
@@ -126,9 +137,6 @@ export class Hashlife {
         const D = QuadTree.create(node.level - 1, r11, r12, r21, r22);
 
         // Second round of steps (advances another 2^(k-3))
-        // Standard Hashlife continues here.
-        // My advance() logic stops before this for small steps, doing custom assembly instead.
-
         const resA = this.step(A);
         const resB = this.step(B);
         const resC = this.step(C);
