@@ -9,7 +9,7 @@ import { PATTERNS } from './data/patterns';
 
 function App() {
   const engineRef = useRef(new Hashlife());
-  const universeRef = useRef<QuadTreeNode>(QuadTree.empty(0));
+  const universeRef = useRef<QuadTreeNode>(QuadTree.empty(8));
 
   // State
   const [playing, setPlaying] = useState(false);
@@ -26,7 +26,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // NEW: Track the current pattern RLE
-  const [currentRLE, setCurrentRLE] = useState(PATTERNS["Gosper Glider Gun"]);
+  const [currentRLE, setCurrentRLE] = useState("");
 
   // Load Pattern Helper
   const loadPattern = useCallback((rle: string) => {
@@ -70,10 +70,7 @@ function App() {
     }
   }, []);
 
-  // Initialize with Gosper Gun
-  useEffect(() => {
-    loadPattern(PATTERNS["Gosper Glider Gun"]);
-  }, [loadPattern]);
+
 
   // Simulation Step
   const stepCount = useRef(0);

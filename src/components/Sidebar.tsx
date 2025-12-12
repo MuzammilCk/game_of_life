@@ -87,11 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent'
                     }}>
-                        Infinite Life
+                        Game of Life
                     </h1>
-                    <p style={{ fontSize: '0.8rem', color: '#888', margin: 0 }}>
-                        Evolutionary Engine v1.0
-                    </p>
                 </div>
 
                 {/* Stats */}
